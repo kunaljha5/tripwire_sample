@@ -46,8 +46,8 @@ echo 'Text file 1'> project/file1.txt
 echo 'Text file 20'> project/file2.txt
 echo 'Text file 300'> project/file3.txt
 echo 'Text file 4000'> project/file4.txt
-echo 'Text file 50000'> project/file5.txt; sleep 1
-echo 'Text file 600000'> project/dir1/file6.txt
+echo 'Text file 50000'> project/file5.txt
+echo 'Text file 600000'> project/dir1/file6.txt; sleep 1
 echo 'Text file 7000000'> project/dir2/file7.txt; sleep 1
 
 
@@ -115,7 +115,7 @@ do
 
 done
 
-cat $main_file|grep '>'|cut -d'>' -f2|tr -d '\t'|cut -d, -f1-3| while read line
+cat $main_file|grep '>'|cut -d'>' -f2|tr -d '\t'|cut -d, -f1-4| while read line
 do
         nFILENAME=$(cat $file_latest | grep "$line"| cut -d, -f4)
         nTYPE=$(cat $file_latest | grep "$line"| cut -d, -f3|sed "s|f|FILE|g"|sed "s|d|DIRECTORY|g"|sed "s|l|SYMBOLIC_LINK|g" )
@@ -127,6 +127,9 @@ done
 
 cat $main_file|grep '|'| cut -d'|' -f2 |tr -d "\t"|cut -d, -f1-3| while read line
 do
+        
+        line1=$(cat $main_file| grep '|'| grep "$line"| cut -d'|' -f1 |tr -d "\t"|cut -d, -f1-3)
+        
         nFILENAME=$(cat $file_latest | grep "$line"| cut -d, -f4)
         nMTIME=$(cat $file_latest | grep "$line"| cut -d, -f1 )
         nSIZE=$(cat $file_latest | grep "$line"| cut -d, -f2 )
@@ -134,8 +137,29 @@ do
         nUID=$(cat $file_latest | grep "$line"| cut -d, -f5 )
         nGID=$(cat $file_latest | grep "$line"| cut -d, -f6 )
         nMODE=$(cat $file_latest | grep "$line"| cut -d, -f7 )
+        oFILENAME=$(cat $file_init | grep "$line1"| cut -d, -f4)
+        oTYPE=$(cat $file_init | grep "$line1"| cut -d, -f3|sed "s|f|FILE|g"|sed "s|d|DIRECTORY|g"|sed "s|l|SYMBOLIC_LINK|g" )
+        #echo $oFILENAME
+        
+        cat $file_init | grep "$nFILENAME" 2>/dev/null 1>/dev/null  && cat $file_latest | grep "$oFILENAME" 2>/dev/null 1>/dev/null
+        if [[ $? -eq 0 ]]; then
+                echo -e "|\t\t Modified\t\t$nTYPE: \t\t  $nFILENAME"
+        fi
+        
+        
+        
+        cat $file_init | grep "$nFILENAME" 2>/dev/null 1>/dev/null && cat $file_latest | grep "$oFILENAME" 2>/dev/null 1>/dev/null
+        if [[ $? -ne 0 ]]; then
+                cat $file_init | grep "$nFILENAME"  2>/dev/null 1>/dev/null
+                if [[ $? -ne 0 ]];then
+                        echo -e "|\t\t Created\t\t$nTYPE: \t\t  $nFILENAME"
+                fi
+                cat $file_latest| grep "$oFILENAME" 2>/dev/null 1>/dev/null
+                if [[ $? -ne 0 ]];then
+                        echo -e "|\t\t Deleted\t\t$oTYPE: \t\t  $oFILENAME"
 
-        echo -e "|\t\t Modified\t\t$nTYPE: \t\t  $nFILENAME"
+                fi
+        fi
 done
 }
 
@@ -151,7 +175,7 @@ done
 
 function_verify()
 {
-cd /tmp
+
 
 rm -rf /tmp/file_exception.txt /tmp/dir_exception.txt  /tmp/link_exception.txt 2>/dev/null 1>/dev/null
 
@@ -175,6 +199,10 @@ echo -e "+---------------------------------------------------------------+\n|\n|
 
 cat $file_init | grep ",f,"  > /tmp/file1.txt
 cat $file_latest | grep ",f,"  > /tmp/file2.txt
+
+
+
+
 
 sdiff -s /tmp/file1.txt /tmp/file2.txt | grep ",f,"  2>/dev/null 1>/dev/null
 if [[ $? -eq 1 ]]; then
@@ -307,11 +335,16 @@ RANDOM=$$
 
 for i in `seq 3`
 do
+        
         R=$(($(($RANDOM%$DIFF))+$START))
         SOURCE=$(cat $file_init | head -$R| tail -1|cut -d, -f4)
         if [[ "$i" == "1" ]]
         then
                 touch $SOURCE
+                sleep 1;
+                mkdir $LOCATION/dir3
+                sleep 1;
+                rm -rf $LOCATION/dir2
         elif [[ "$i" == "2" ]]
         then
                 rm -rf $SOURCE
